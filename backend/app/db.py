@@ -18,9 +18,15 @@ def engine_args(url: str) -> tuple[str, dict]:
     sslmode = query.pop("sslmode", None)
     query.pop("channel_binding", None)  # not supported by asyncpg
     url = urlunsplit(parts._replace(scheme="postgresql+asyncpg", query=urlencode(query)))
-    if sslmode is None:
-        return url, {}
-    return url, {"connect_args": {"ssl": sslmode != "disable"}}
+    connect_args: dict = {}
+    if sslmode is not None:
+        connect_args["ssl"] = sslmode != "disable"
+    if "-pooler" in (parts.hostname or ""):
+        # Neon's pooler (PgBouncer, transaction mode) can't keep prepared statements.
+        connect_args["statement_cache_size"] = 0
+        query["prepared_statement_cache_size"] = "0"
+        url = urlunsplit(parts._replace(scheme="postgresql+asyncpg", query=urlencode(query)))
+    return url, {"connect_args": connect_args} if connect_args else {}
 
 
 url, kwargs = engine_args(get_settings().database_url)
