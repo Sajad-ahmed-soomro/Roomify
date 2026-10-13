@@ -1,8 +1,8 @@
 """Where the before/after JPEGs live.
 
 IMAGE_STORAGE=db  (default) rows in the design_images table. No setup needed.
-IMAGE_STORAGE=s3  any S3-compatible bucket: Google Cloud Storage (HMAC keys),
-                  Cloudflare R2, AWS S3… The bucket stays private; the backend
+IMAGE_STORAGE=s3  any S3-compatible bucket: Neon Object Storage, Google Cloud
+                  Storage (HMAC keys), Cloudflare R2, AWS S3… The bucket stays private; the backend
                   streams images to their owner.
 """
 
@@ -35,8 +35,14 @@ def _bucket():
         region_name=s.s3_region,
         aws_access_key_id=s.s3_access_key_id,
         aws_secret_access_key=s.s3_secret_access_key,
-        # GCS's S3 API rejects the checksum headers newer boto3 adds by default.
-        config=Config(request_checksum_calculation="when_required", response_checksum_validation="when_required"),
+        config=Config(
+            # Neon Object Storage only supports path-style URLs (host/bucket/key); GCS and R2 accept them too.
+            s3={"addressing_style": "path"},
+            signature_version="s3v4",
+            # GCS's S3 API rejects the checksum headers newer boto3 adds by default.
+            request_checksum_calculation="when_required",
+            response_checksum_validation="when_required",
+        ),
     )
     return client, s.s3_bucket
 
