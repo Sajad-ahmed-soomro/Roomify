@@ -1,6 +1,7 @@
-"""Claude as the interior designer: looks at the photo, plans the redesign and
-writes the Stable Diffusion prompt."""
+"""The LLM as interior designer (Gemini or Claude): looks at the photo, plans the
+redesign and writes the Stable Diffusion prompt."""
 
+import asyncio
 import base64
 import io
 import json
@@ -10,6 +11,7 @@ from dataclasses import dataclass
 from typing import Any
 
 import anthropic
+import httpx
 from PIL import Image
 from pydantic import BaseModel, ValidationError
 
@@ -126,35 +128,21 @@ def fallback_plan(room_type: str, style: str, wishes: str) -> Plan:
     return Plan(template_prompt(room_type, style, wishes), DEFAULT_NEGATIVE)
 
 
-_client: anthropic.AsyncAnthropic | None = None
+_claude: anthropic.AsyncAnthropic | None = None
+_gemini = None
 
 
-def _get_client() -> anthropic.AsyncAnthropic | None:
-    global _client
+async def _ask_claude(photo_jpeg: bytes, request_text: str) -> tuple[str, str] | None:
+    """Returns (JSON text, model) or None if Claude is unavailable."""
+    global _claude
     settings = get_settings()
     if not settings.anthropic_api_key:
         return None
-    if _client is None:
-        _client = anthropic.AsyncAnthropic(api_key=settings.anthropic_api_key, timeout=90.0)
-    return _client
-
-
-async def plan_design(photo_jpeg: bytes, room_type: str, style: str, wishes: str) -> Plan:
-    """Ask Claude for a design plan. Falls back to a template prompt if Claude is
-    unavailable; raises NotARoomError if the photo isn't a room."""
-    client = _get_client()
-    if client is None:
-        return fallback_plan(room_type, style, wishes)
-
-    settings = get_settings()
-    request_text = (
-        f"Room type: {ROOM_TYPES[room_type]}\n"
-        f"Style: {STYLES[style].label} ({STYLES[style].prompt})\n"
-        f"User's wishes: {wishes.strip() or '(none)'}"
-    )
+    if _claude is None:
+        _claude = anthropic.AsyncAnthropic(api_key=settings.anthropic_api_key, timeout=90.0)
     try:
-        response = await client.beta.messages.create(
-            model=settings.llm_model,
+        response = await _claude.beta.messages.create(
+            model=settings.anthropic_model,
             max_tokens=4000,
             system=SYSTEM_PROMPT,
             messages=[
@@ -166,26 +154,88 @@ async def plan_design(photo_jpeg: bytes, room_type: str, style: str, wishes: str
                     ],
                 }
             ],
-            output_config={"effort": settings.llm_effort, "format": {"type": "json_schema", "schema": PLAN_SCHEMA}},
+            output_config={"effort": settings.anthropic_effort, "format": {"type": "json_schema", "schema": PLAN_SCHEMA}},
             betas=["server-side-fallback-2026-07-01"],
             fallbacks="default",
         )
     except anthropic.AuthenticationError:
         log.error("Anthropic API key was rejected; using the template prompt.")
-        return fallback_plan(room_type, style, wishes)
+        return None
     except anthropic.APIError as e:
         log.warning("Claude request failed (%s); using the template prompt.", e)
-        return fallback_plan(room_type, style, wishes)
-
+        return None
     if response.stop_reason in ("refusal", "max_tokens"):
         log.warning("Claude stopped with %s; using the template prompt.", response.stop_reason)
-        return fallback_plan(room_type, style, wishes)
+        return None
+    return next((b.text for b in response.content if b.type == "text"), ""), response.model
 
-    text = next((b.text for b in response.content if b.type == "text"), "")
+
+async def _ask_gemini(photo_jpeg: bytes, request_text: str) -> tuple[str, str] | None:
+    """Returns (JSON text, model) or None if Gemini is unavailable."""
+    global _gemini
+    settings = get_settings()
+    if not settings.gemini_api_key:
+        return None
+    from google import genai
+    from google.genai import errors, types
+
+    if _gemini is None:
+        _gemini = genai.Client(
+            api_key=settings.gemini_api_key,
+            # The SDK's own retries (5 attempts, up to 60s backoff) can stall a request for
+            # over a minute; retry ourselves below instead. Timeout is in milliseconds.
+            http_options=types.HttpOptions(timeout=30_000, retry_options=types.HttpRetryOptions(attempts=1)),
+        )
+    contents = [
+        types.Part.from_bytes(data=base64.standard_b64decode(_encode_image(photo_jpeg)), mime_type="image/jpeg"),
+        request_text,
+    ]
+    config = types.GenerateContentConfig(
+        system_instruction=SYSTEM_PROMPT,
+        response_mime_type="application/json",
+        response_schema=DesignPlan,
+    )
+    # The free tier often answers 503 (busy) or 429 (rate limit): retry once, then try
+    # the lighter fallback model before giving up.
+    attempts = [settings.gemini_model, settings.gemini_model, settings.gemini_fallback_model]
+    deadline = asyncio.get_running_loop().time() + 60  # don't keep the user waiting forever
+    for i, model in enumerate(attempts):
+        try:
+            response = await _gemini.aio.models.generate_content(model=model, contents=contents, config=config)
+        except (errors.APIError, httpx.HTTPError) as e:
+            code = e.code if isinstance(e, errors.APIError) else type(e).__name__
+            retryable = isinstance(e, httpx.HTTPError) or code in (429, 500, 502, 503, 504)
+            if retryable and i < len(attempts) - 1 and asyncio.get_running_loop().time() < deadline:
+                log.info("Gemini %s unavailable (%s); retrying.", model, code)
+                await asyncio.sleep(1.5)
+                continue
+            log.warning("Gemini request failed (%s); using the template prompt.", code)
+            return None
+        if not response.text:  # blocked or empty
+            log.warning("Gemini returned no text; using the template prompt.")
+            return None
+        return response.text, getattr(response, "model_version", None) or model
+    return None
+
+
+async def plan_design(photo_jpeg: bytes, room_type: str, style: str, wishes: str) -> Plan:
+    """Ask the LLM (Gemini or Claude, per LLM_PROVIDER) for a design plan. Falls back
+    to a template prompt if it's unavailable; raises NotARoomError if the photo isn't a room."""
+    request_text = (
+        f"Room type: {ROOM_TYPES[room_type]}\n"
+        f"Style: {STYLES[style].label} ({STYLES[style].prompt})\n"
+        f"User's wishes: {wishes.strip() or '(none)'}"
+    )
+    ask = _ask_gemini if get_settings().llm_provider == "gemini" else _ask_claude
+    answer = await ask(photo_jpeg, request_text)
+    if answer is None:
+        return fallback_plan(room_type, style, wishes)
+    text, model = answer
+
     try:
         plan = DesignPlan.model_validate(json.loads(text))
     except (json.JSONDecodeError, ValidationError) as e:
-        log.warning("Claude returned an unusable plan (%s); using the template prompt.", e)
+        log.warning("The LLM returned an unusable plan (%s); using the template prompt.", e)
         return fallback_plan(room_type, style, wishes)
 
     if not plan.is_room:
@@ -201,5 +251,5 @@ async def plan_design(photo_jpeg: bytes, room_type: str, style: str, wishes: str
             "keyChanges": plan.key_changes,
             "shoppingList": [i.model_dump() for i in plan.shopping_list],
         },
-        model=response.model,
+        model=model,
     )

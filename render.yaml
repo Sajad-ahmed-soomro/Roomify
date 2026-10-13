@@ -15,10 +15,10 @@ services:
         value: "3.13.15"
       - key: IMAGE_ENGINE
         value: remote
-      - key: LLM_MODEL
-        value: claude-opus-5-5
-      - key: LLM_EFFORT
-        value: low
+      - key: LLM_PROVIDER
+        value: gemini
+      - key: GEMINI_MODEL
+        value: gemini-flash-latest
       - key: MAX_DESIGNS_PER_USER
         value: "2"
       # Images live in the database. To use a Google Cloud Storage bucket instead, set
@@ -28,7 +28,7 @@ services:
         value: db
       - { key: INTERNAL_API_KEY, sync: false }
       - { key: DATABASE_URL, sync: false }
-      - { key: ANTHROPIC_API_KEY, sync: false }
+      - { key: GEMINI_API_KEY, sync: false }
       - { key: RENDER_URL, sync: false }
       - { key: RENDER_KEY, sync: false }
       - { key: UNLIMITED_EMAILS, sync: false }

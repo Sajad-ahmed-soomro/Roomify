@@ -28,5 +28,9 @@ def health():
         "status": "ok",
         "imageEngine": settings.image_engine,
         "modelLoaded": imagegen._pipe is not None if settings.image_engine == "sd" else None,
-        "llm": settings.llm_model if settings.anthropic_api_key else None,
+        "llm": (
+            settings.gemini_model if settings.llm_provider == "gemini" and settings.gemini_api_key
+            else settings.anthropic_model if settings.llm_provider == "anthropic" and settings.anthropic_api_key
+            else None
+        ),
     }

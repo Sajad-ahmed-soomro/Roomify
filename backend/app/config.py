@@ -17,10 +17,14 @@ class Settings(BaseSettings):
     # SQLite locally; on Render set the Neon URL (postgresql://…), see app/db.py.
     database_url: str = f"sqlite+aiosqlite:///{BACKEND_DIR / 'data' / 'roomify.db'}"
 
-    # --- LLM (Claude) ---
+    # --- LLM (plans the design from the photo; see app/services/designer.py) ---
+    llm_provider: Literal["gemini", "anthropic"] = "gemini"
+    gemini_api_key: str | None = None  # free key: https://aistudio.google.com/apikey
+    gemini_model: str = "gemini-flash-latest"
+    gemini_fallback_model: str = "gemini-flash-lite-latest"  # used when the main model is busy
     anthropic_api_key: str | None = None
-    llm_model: str = "claude-opus-5-5"
-    llm_effort: Literal["low", "medium", "high", "xhigh", "max"] = "low"
+    anthropic_model: str = "claude-opus-5-5"
+    anthropic_effort: Literal["low", "medium", "high", "xhigh", "max"] = "low"
 
     # --- Image generation ---
     # "sd":     Stable Diffusion in this process (local development, or the worker).

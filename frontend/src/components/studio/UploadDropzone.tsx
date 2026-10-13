@@ -75,6 +75,9 @@ export function UploadDropzone({ onFile }: Props) {
         </button>
       </div>
       <p className="mt-4 text-xs text-muted">JPG, PNG, HEIC or WebP</p>
+      <p className="mt-1 max-w-xs text-[11px] text-muted/80">
+        Your photo is analysed by Google Gemini to plan the design.
+      </p>
 
       <input ref={uploadRef} type="file" accept="image/*" className="hidden" onChange={pick} />
       <input ref={cameraRef} type="file" accept="image/*" capture="environment" className="hidden" onChange={pick} />
