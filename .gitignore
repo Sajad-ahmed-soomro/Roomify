@@ -1,0 +1,36 @@
+# --- Secrets: never commit real keys (the .env.example files are safe templates) ---
+.env
+.env.*
+!.env.example
+
+# --- Local databases and uploaded images ---
+backend/data/
+frontend/data/
+*.db
+*.db-shm
+*.db-wal
+
+# --- Python ---
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+
+# --- Node / Next.js ---
+node_modules/
+.next/
+out/
+*.tsbuildinfo
+next-env.d.ts
+.vercel/
+
+# --- Generated images from local test scripts ---
+/*.png
+/*.jpg
+
+# --- OS / editors ---
+.DS_Store
+.idea/
+.vscode/
+*.log

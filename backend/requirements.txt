@@ -1,0 +1,13 @@
+# Hosted API (Render). No PyTorch: images are rendered by worker.py.
+fastapi>=0.143
+uvicorn[standard]>=0.54
+sqlalchemy[asyncio]>=2.1
+aiosqlite>=0.22
+asyncpg>=0.30
+alembic>=1.20
+pydantic-settings>=2.6
+python-multipart>=0.0.20
+anthropic>=1.13
+httpx>=0.28
+boto3>=1.35
+pillow>=12

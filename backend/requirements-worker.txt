@@ -1,0 +1,6 @@
+# Laptop render worker (and running Stable Diffusion inside the API locally).
+-r requirements.txt
+torch>=2.14
+diffusers>=0.41
+transformers>=5
+accelerate>=1.15

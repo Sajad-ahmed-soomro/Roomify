@@ -1,0 +1,36 @@
+# Render Blueprint: New → Blueprint → pick this repo. Secrets marked sync:false
+# are asked for in the dashboard.
+services:
+  - type: web
+    name: roomify-api
+    runtime: python
+    plan: free
+    rootDir: backend
+    buildCommand: pip install -r requirements.txt
+    # Free instances can't use preDeployCommand, so migrate on start (it's a no-op when up to date).
+    startCommand: alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /health
+    envVars:
+      - key: PYTHON_VERSION
+        value: "3.13.15"
+      - key: IMAGE_ENGINE
+        value: remote
+      - key: LLM_MODEL
+        value: claude-opus-5-5
+      - key: LLM_EFFORT
+        value: low
+      - key: MAX_DESIGNS_PER_USER
+        value: "2"
+      - key: IMAGE_STORAGE
+        value: s3
+      - key: S3_ENDPOINT_URL
+        value: https://storage.googleapis.com
+      - { key: INTERNAL_API_KEY, sync: false }
+      - { key: DATABASE_URL, sync: false }
+      - { key: ANTHROPIC_API_KEY, sync: false }
+      - { key: RENDER_URL, sync: false }
+      - { key: RENDER_KEY, sync: false }
+      - { key: UNLIMITED_EMAILS, sync: false }
+      - { key: S3_BUCKET, sync: false }
+      - { key: S3_ACCESS_KEY_ID, sync: false }
+      - { key: S3_SECRET_ACCESS_KEY, sync: false }
