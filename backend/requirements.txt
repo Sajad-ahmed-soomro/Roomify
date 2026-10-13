@@ -10,5 +10,6 @@ python-multipart>=0.0.20
 anthropic>=1.13
 google-genai>=1.0
 httpx>=0.28
+certifi>=2024.2
 boto3>=1.35
 pillow>=12

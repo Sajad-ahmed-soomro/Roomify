@@ -1,6 +1,9 @@
 import os
+import ssl
 from collections.abc import AsyncIterator
 from pathlib import Path
+
+import certifi
 from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
 from sqlalchemy import event
@@ -21,8 +24,11 @@ def engine_args(url: str) -> tuple[str, dict]:
     query.pop("channel_binding", None)  # not supported by asyncpg
     url = urlunsplit(parts._replace(scheme="postgresql+asyncpg", query=urlencode(query)))
     connect_args: dict = {}
-    if sslmode is not None:
-        connect_args["ssl"] = sslmode != "disable"
+    if sslmode is not None and sslmode != "disable":
+        # Use certifi's CA bundle: python.org builds on macOS don't see the system certificates.
+        connect_args["ssl"] = ssl.create_default_context(cafile=certifi.where())
+    elif sslmode == "disable":
+        connect_args["ssl"] = False
     if "-pooler" in (parts.hostname or ""):
         # Neon's pooler (PgBouncer, transaction mode) can't keep prepared statements.
         connect_args["statement_cache_size"] = 0
