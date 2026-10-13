@@ -2,9 +2,11 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Literal
 
+from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 BACKEND_DIR = Path(__file__).resolve().parent.parent
+LOCAL_SQLITE = f"sqlite+aiosqlite:///{BACKEND_DIR / 'data' / 'roomify.db'}"
 
 
 class Settings(BaseSettings):
@@ -15,7 +17,7 @@ class Settings(BaseSettings):
     internal_api_key: str
 
     # SQLite locally; on Render set the Neon URL (postgresql://…), see app/db.py.
-    database_url: str = f"sqlite+aiosqlite:///{BACKEND_DIR / 'data' / 'roomify.db'}"
+    database_url: str = LOCAL_SQLITE
 
     # --- LLM (plans the design from the photo; see app/services/designer.py) ---
     llm_provider: Literal["gemini", "anthropic"] = "gemini"
@@ -55,6 +57,12 @@ class Settings(BaseSettings):
     max_designs_per_user: int = 2
     # Comma-separated emails with no limit (e.g. your own).
     unlimited_emails: str = ""
+
+    @field_validator("database_url", mode="before")
+    @classmethod
+    def _blank_means_local(cls, v: str | None) -> str:
+        # An empty DATABASE_URL (e.g. left blank in a dashboard) means "not set".
+        return v.strip() if v and v.strip() else LOCAL_SQLITE
 
     def is_unlimited(self, email: str) -> bool:
         allowed = {e.strip().lower() for e in self.unlimited_emails.split(",") if e.strip()}
