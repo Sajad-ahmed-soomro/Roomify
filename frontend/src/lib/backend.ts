@@ -20,7 +20,8 @@ export async function backendFetch(user: User, path: string, init: RequestInit =
   ).toString("base64url");
 
   const headers = new Headers(init.headers);
-  headers.set("X-Internal-Key", process.env.BACKEND_API_KEY ?? "");
+  // Forgive a key pasted into the dashboard with surrounding spaces or quotes.
+  headers.set("X-Internal-Key", (process.env.BACKEND_API_KEY ?? "").trim().replace(/^["']|["']$/g, ""));
   headers.set("X-User", identity);
 
   try {

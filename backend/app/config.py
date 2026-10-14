@@ -59,6 +59,12 @@ class Settings(BaseSettings):
     # Comma-separated emails with no limit (e.g. your own).
     unlimited_emails: str = ""
 
+    @field_validator("internal_api_key", "render_key", "gemini_api_key", "anthropic_api_key", mode="before")
+    @classmethod
+    def _strip_secret(cls, v: str | None) -> str | None:
+        # Forgive keys pasted into a dashboard with surrounding spaces or quotes.
+        return v.strip().strip("'\"").strip() if isinstance(v, str) else v
+
     @field_validator("database_url", mode="before")
     @classmethod
     def _blank_means_local(cls, v: str | None) -> str:
