@@ -22,7 +22,8 @@ class Settings(BaseSettings):
     # --- LLM (plans the design from the photo; see app/services/designer.py) ---
     llm_provider: Literal["gemini", "anthropic"] = "gemini"
     gemini_api_key: str | None = None  # free key: https://aistudio.google.com/apikey
-    gemini_model: str = "gemini-flash-latest"
+    # Pinned, not "-latest": the newest models are often overloaded on the free tier.
+    gemini_model: str = "gemini-2.5-flash"
     gemini_fallback_model: str = "gemini-flash-lite-latest"  # used when the main model is busy
     anthropic_api_key: str | None = None
     anthropic_model: str = "claude-opus-5-5"

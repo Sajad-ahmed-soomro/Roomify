@@ -195,9 +195,9 @@ async def _ask_gemini(photo_jpeg: bytes, request_text: str) -> tuple[str, str] |
         response_mime_type="application/json",
         response_schema=DesignPlan,
     )
-    # The free tier often answers 503 (busy) or 429 (rate limit): retry once, then try
-    # the lighter fallback model before giving up.
-    attempts = [settings.gemini_model, settings.gemini_model, settings.gemini_fallback_model]
+    # The free tier often answers 503 (busy) or 429 (rate limit). A busy model usually stays
+    # busy for a while, so try the fallback model next, then the main one once more.
+    attempts = [settings.gemini_model, settings.gemini_fallback_model, settings.gemini_model]
     deadline = asyncio.get_running_loop().time() + 60  # don't keep the user waiting forever
     for i, model in enumerate(attempts):
         try:

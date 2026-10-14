@@ -29,7 +29,7 @@ API docs: http://127.0.0.1:8000/docs · health: `GET /health`.
 | `INTERNAL_API_KEY` | — (required) | shared secret the Next.js server sends as `X-Internal-Key` |
 | `LLM_PROVIDER` | `gemini` | `gemini` (free tier) or `anthropic` (Claude) |
 | `GEMINI_API_KEY` | empty | free key from https://aistudio.google.com/apikey |
-| `GEMINI_MODEL` | `gemini-flash-latest` | `GEMINI_FALLBACK_MODEL` (`gemini-flash-lite-latest`) is used when it's busy |
+| `GEMINI_MODEL` | `gemini-2.5-flash` | `GEMINI_FALLBACK_MODEL` (`gemini-flash-lite-latest`) is used when it's busy |
 | `ANTHROPIC_API_KEY` / `ANTHROPIC_MODEL` | empty / `claude-opus-5-5` | only when `LLM_PROVIDER=anthropic` |
 | `IMAGE_ENGINE` | `sd` | `sd` = Stable Diffusion here; `remote` = call `worker.py` at `RENDER_URL` (key `RENDER_KEY`); `demo` = instant colour-graded preview |
 | `SD_STEPS` | `30` | more steps = slower, slightly finer detail |
