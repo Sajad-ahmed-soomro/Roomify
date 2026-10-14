@@ -11,7 +11,10 @@ function createDb() {
   if (process.env.DATABASE_URL) {
     return drizzlePg(process.env.DATABASE_URL, { schema });
   }
-  return drizzlePglite("./data/pglite", { schema }) as unknown as ReturnType<typeof drizzlePg<typeof schema>>;
+  // `next build` runs several workers that each import this module; PGlite allows a single
+  // process per data directory, so give the build a throwaway in-memory database instead.
+  const dataDir = process.env.NEXT_PHASE === "phase-production-build" ? "memory://" : "./data/pglite";
+  return drizzlePglite(dataDir, { schema }) as unknown as ReturnType<typeof drizzlePg<typeof schema>>;
 }
 
 // Reuse one connection across hot reloads in development.
